@@ -34,11 +34,24 @@ app.all('/', function(req, res, next)
   })
 });
 
+// Build the time substitutions from the request.
+function buildTimeSubstitutions(req) 
+{
+  var substitutions = { "$from" : new Date(req.body.range.from),
+                        "$to" : new Date(req.body.range.to),
+                        "$dateBucketCount" : getBucketCount(req.body.range.from, req.body.range.to, req.body.intervalMs)
+                      };
+
+  return substitutions;
+}
+
 // Called by template functions and to look up variables
 app.all('/search', function(req, res, next)
 {
   logRequest(req.body, "/search")
   setCORSHeaders(res);
+
+  var substitutions = buildTimeSubstitutions(req);
 
   // Generate an id to track requests
   const requestId = ++requestIdCounter                 
@@ -46,7 +59,7 @@ app.all('/search', function(req, res, next)
   var queryStates = []
   requestsPending[requestId] = queryStates
   // Parse query string in target
-  queryArgs = parseQuery(req.body.target, {})
+  queryArgs = parseQuery(req.body.target, substitutions)
   if (queryArgs.err != null)
   {
     queryError(requestId, queryArgs.err, next)
@@ -124,14 +137,11 @@ function queryFinished(requestId, queryId, results, res, next)
 // Called to get graph points
 app.all('/query', function(req, res, next)
 {
+    // Parse query string in target  
     logRequest(req.body, "/query")
     setCORSHeaders(res);
 
-    // Parse query string in target
-    substitutions = { "$from" : new Date(req.body.range.from),
-                      "$to" : new Date(req.body.range.to),
-                      "$dateBucketCount" : getBucketCount(req.body.range.from, req.body.range.to, req.body.intervalMs)
-                     }
+    substitutions = buildTimeSubstitutions(req);
 
     // Generate an id to track requests
     const requestId = ++requestIdCounter                 
